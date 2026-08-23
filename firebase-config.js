@@ -17,12 +17,12 @@
 //
 // ============================================================
 export const firebaseConfig = {
-  apiKey: "COLE_SUA_API_KEY_AQUI",
-  authDomain: "SEU_PROJETO.firebaseapp.com",
-  projectId: "SEU_PROJETO",
-  storageBucket: "SEU_PROJETO.firebasestorage.app",
-  messagingSenderId: "000000000000",
-  appId: "1:000000000000:web:xxxxxxxxxxxxxxxx"
+  apiKey: "AIzaSyC4J6jW-teYK2cWskyOKjGw-jjQ_sWjfIg",
+  authDomain: "juanil-relatorios.firebaseapp.com",
+  projectId: "juanil-relatorios",
+  storageBucket: "juanil-relatorios.firebasestorage.app",
+  messagingSenderId: "276414986341",
+  appId: "1:276414986341:web:58a6a28f89350d9f226e8c"
 };
 
 // Nome da coleção no Firestore onde os relatórios são gravados.

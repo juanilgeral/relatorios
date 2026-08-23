@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relatório — Juanil</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="app-header no-print">
+  <div class="brand">
+    <img src="logo.jpg" alt="Juanil">
+    <span>Detalhe do relatório</span>
+  </div>
+  <div class="user-info">
+    <span id="userLabel">—</span>
+    <a href="index.html" class="btn btn-sm btn-outline" style="color:#fff;border-color:rgba(255,255,255,.4);">Lista</a>
+  </div>
+</header>
+
+<div class="container">
+  <div id="conteudo" class="card relatorio-view">
+    <p class="text-muted">Carregando...</p>
+  </div>
+
+  <!-- Cobranças (visível para todos; formulário só diretoria/admin) -->
+  <div class="card no-print" id="secaoCobrancas">
+    <h3 class="mt-0" style="color:var(--navy);">Cobranças / Determinações da Diretoria</h3>
+    <div id="listaCobrancas"></div>
+    <div id="formCobranca" class="hidden" style="margin-top:14px;border-top:1px solid var(--gray-100);padding-top:14px;">
+      <div class="field">
+        <label for="cobTexto">Nova cobrança / determinação / agradecimento</label>
+        <textarea id="cobTexto" rows="3" placeholder="Ex.: Regularizar a pendência até o prazo indicado..."></textarea>
+      </div>
+      <div class="field">
+        <label for="cobPrazo">Prazo para finalização</label>
+        <input type="date" id="cobPrazo">
+      </div>
+      <button type="button" class="btn btn-primary btn-sm" id="btnAddCobranca">Registrar cobrança</button>
+    </div>
+  </div>
+
+  <div class="btn-group no-print" id="acoes"></div>
+</div>
+
+<script type="module">
+  import {
+    auth, signOut, protegerPagina, RELATORIOS_COL, doc, getDoc, updateDoc, deleteDoc,
+    serverTimestamp, arrayUnion, infoUsuario, statusBadge, fmtData, fmtDataHora,
+    escapeHtml, podeEditar, podeExcluir, podeCobrar, toast, aplicarClasseDispositivo
+  } from "./app-core.js";
+
+  aplicarClasseDispositivo();
+
+  const params = new URLSearchParams(location.search);
+  const id = params.get("id");
+  let userAtual = null;
+  let rel = null;
+
+  if (!id) {
+    location.href = "index.html";
+  }
+
+  protegerPagina(async (user) => {
+    userAtual = user;
+    document.getElementById("userLabel").textContent = infoUsuario(user.email).nome;
+    await carregar();
+  });
+
+  async function carregar() {
+    const snap = await getDoc(doc(RELATORIOS_COL, id));
+    if (!snap.exists()) {
+      document.getElementById("conteudo").innerHTML = "<p>Relatório não encontrado.</p>";
+      return;
+    }
+    rel = { id: snap.id, ...snap.data() };
+    render();
+  }
+
+  function render() {
+    const c = document.getElementById("conteudo");
+    const fotos = Array.isArray(rel.fotos) ? rel.fotos : [];
+    const video = rel.video;
+    const geo = rel.geolocalizacao;
+    const pctMeta = (rel.metaEsperada > 0 && rel.metaRealizada != null)
+      ? Math.round((rel.metaRealizada / rel.metaEsperada) * 100) : null;
+
+    let geoHtml = `<span class="geo-badge falhou">Localização não registrada</span>`;
+    if (geo && geo.lat != null) {
+      const maps = `https://www.google.com/maps?q=${geo.lat},${geo.lng}`;
+      geoHtml = `<a class="geo-badge" href="${maps}" target="_blank" rel="noopener">📍 ${Number(geo.lat).toFixed(5)}, ${Number(geo.lng).toFixed(5)} (±${Math.round(geo.precisao || 0)} m)</a>
+        <span class="text-muted" style="margin-left:8px;">${geo.capturadoEm ? "em " + new Date(geo.capturadoEm).toLocaleString("pt-BR") : ""}</span>`;
+    } else if (geo && geo.erro) {
+      geoHtml = `<span class="geo-badge falhou">📍 Falha: ${escapeHtml(geo.erro)}</span>`;
+    }
+
+    c.innerHTML = `
+      <div class="flex-between">
+        <h2 class="mt-0">${escapeHtml(rel.protocolo || rel.id)}</h2>
+        ${statusBadge(rel.status || "aberto")}
+      </div>
+      <p class="text-muted" style="margin-top:-6px;">
+        Lançado por <strong>${escapeHtml(rel.criadoPorNome || rel.criadoPor || "—")}</strong>
+        em ${fmtDataHora(rel.criadoEm)}
+        ${rel.atualizadoEm ? ` · Atualizado em ${fmtDataHora(rel.atualizadoEm)}` : ""}
+      </p>
+
+      <div class="secao">
+        <div class="label">Título</div>
+        <div class="valor">${escapeHtml(rel.titulo || "—")}</div>
+      </div>
+      <div class="field-row">
+        <div class="secao">
+          <div class="label">Operação / CD</div>
+          <div class="valor">${escapeHtml(rel.operacao || "—")}</div>
+        </div>
+        <div class="secao">
+          <div class="label">Data da ocorrência</div>
+          <div class="valor">${fmtData(rel.dataOcorrencia) || "—"}</div>
+        </div>
+      </div>
+      <div class="secao">
+        <div class="label">Prazo para finalização</div>
+        <div class="valor">${fmtData(rel.prazo) || "Não definido"}</div>
+      </div>
+
+      <div class="field-row">
+        <div class="secao">
+          <div class="label">Houve avaria / dano?</div>
+          <div class="valor">${rel.houveAvaria === "sim" ? "Sim" : rel.houveAvaria === "nao" ? "Não" : "—"}</div>
+        </div>
+        <div class="secao">
+          <div class="label">Meta de expedição</div>
+          <div class="valor">
+            ${rel.metaEsperada != null || rel.metaRealizada != null
+              ? `${rel.metaRealizada ?? "—"} / ${rel.metaEsperada ?? "—"} ${pctMeta != null ? `(${pctMeta}%)` : ""}`
+              : "Não informada"}
+          </div>
+        </div>
+      </div>
+      ${rel.motivoMeta ? `
+        <div class="secao">
+          <div class="label">Motivo da meta abaixo do esperado</div>
+          <div class="valor">${escapeHtml(rel.motivoMeta)}</div>
+        </div>` : ""}
+
+      <div class="secao">
+        <div class="label">Observação / Descrição</div>
+        <div class="valor">${escapeHtml(rel.observacao || "—")}</div>
+      </div>
+
+      <div class="secao">
+        <div class="label">Geolocalização no momento do lançamento</div>
+        <div class="valor" style="margin-top:6px;">${geoHtml}</div>
+      </div>
+
+      ${fotos.length ? `
+        <div class="secao">
+          <div class="label">Fotos (${fotos.length})</div>
+          <div class="galeria">
+            ${fotos.map(f => `
+              <a href="${f.url}" target="_blank" rel="noopener">
+                <img src="${f.url}" alt="${escapeHtml(f.nome || "foto")}">
+              </a>`).join("")}
+          </div>
+        </div>` : ""}
+
+      ${video ? `
+        <div class="secao">
+          <div class="label">Vídeo</div>
+          <div class="galeria">
+            <figure>
+              <video src="${video.url}" controls playsinline style="height:auto;max-height:280px;"></video>
+            </figure>
+          </div>
+          <p class="text-muted">${escapeHtml(video.nome || "")}</p>
+        </div>` : ""}
+
+      ${rel.assinaturaDataUrl ? `
+        <div class="secao">
+          <div class="label">Assinatura do responsável</div>
+          <div class="valor" style="margin-top:8px;">
+            <img src="${rel.assinaturaDataUrl}" alt="Assinatura" style="max-width:320px;border:1px solid var(--gray-200);border-radius:8px;background:#fff;">
+            ${rel.assinadoEm ? `<p class="text-muted">Assinado em ${new Date(rel.assinadoEm).toLocaleString("pt-BR")}</p>` : ""}
+          </div>
+        </div>` : ""}
+    `;
+
+    // Cobranças
+    const lista = document.getElementById("listaCobrancas");
+    const cobrancas = Array.isArray(rel.cobrancas) ? rel.cobrancas : [];
+    if (!cobrancas.length) {
+      lista.innerHTML = `<p class="text-muted">Nenhuma cobrança registrada.</p>`;
+    } else {
+      lista.innerHTML = cobrancas.map(c => `
+        <div class="cobranca-item">
+          <div class="meta">
+            ${escapeHtml(c.criadoPorNome || c.criadoPor || "Diretoria")}
+            · ${fmtDataHora(c.criadoEm)}
+            ${c.prazo ? ` · <span class="prazo">Prazo: ${fmtData(c.prazo)}</span>` : ""}
+          </div>
+          <div>${escapeHtml(c.texto || "")}</div>
+        </div>
+      `).join("");
+    }
+
+    if (podeCobrar(userAtual.email)) {
+      document.getElementById("formCobranca").classList.remove("hidden");
+    }
+
+    // Ações
+    const acoes = document.getElementById("acoes");
+    let html = "";
+    if (podeEditar(rel, userAtual.email, userAtual.uid)) {
+      html += `<a href="form.html?id=${encodeURIComponent(rel.id)}" class="btn btn-outline">Editar</a>`;
+    }
+    if (podeExcluir(rel, userAtual.email, userAtual.uid)) {
+      html += `<button type="button" class="btn btn-danger" id="btnExcluir">Excluir</button>`;
+    }
+    html += `<button type="button" class="btn btn-outline" onclick="window.print()">Imprimir / PDF</button>`;
+    acoes.innerHTML = html;
+
+    document.getElementById("btnExcluir")?.addEventListener("click", async () => {
+      if (!confirm("Excluir este relatório permanentemente?")) return;
+      try {
+        await deleteDoc(doc(RELATORIOS_COL, rel.id));
+        toast("Relatório excluído.", "ok");
+        setTimeout(() => location.href = "index.html", 800);
+      } catch (err) {
+        toast("Erro ao excluir: " + err.message, "erro");
+      }
+    });
+  }
+
+  document.getElementById("btnAddCobranca").addEventListener("click", async () => {
+    const texto = document.getElementById("cobTexto").value.trim();
+    const prazo = document.getElementById("cobPrazo").value || null;
+    if (!texto) {
+      toast("Escreva o texto da cobrança.", "erro");
+      return;
+    }
+    const info = infoUsuario(userAtual.email);
+    const nova = {
+      texto,
+      prazo,
+      criadoPor: userAtual.email,
+      criadoPorNome: info.nome,
+      criadoEm: new Date().toISOString()
+    };
+    try {
+      await updateDoc(doc(RELATORIOS_COL, rel.id), {
+        cobrancas: arrayUnion(nova),
+        atualizadoEm: serverTimestamp()
+      });
+      // Se houver prazo na cobrança e o relatório não tiver prazo, ou for mais restritivo, opcionalmente atualiza
+      if (prazo && (!rel.prazo || prazo < rel.prazo)) {
+        await updateDoc(doc(RELATORIOS_COL, rel.id), { prazo });
+      }
+      toast("Cobrança registrada.", "ok");
+      document.getElementById("cobTexto").value = "";
+      document.getElementById("cobPrazo").value = "";
+      await carregar();
+    } catch (err) {
+      console.error(err);
+      toast("Erro ao registrar cobrança: " + err.message, "erro");
+    }
+  });
+</script>
+</body>
+</html>

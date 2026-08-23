@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relatórios Operacionais — Juanil</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="app-header">
+  <div class="brand">
+    <img src="logo.jpg" alt="Juanil">
+    <span>Relatórios Operacionais</span>
+  </div>
+  <div class="user-info">
+    <span id="userLabel">—</span>
+    <button class="btn btn-sm btn-outline" id="btnSair" style="color:#fff;border-color:rgba(255,255,255,.4);">Sair</button>
+  </div>
+</header>
+
+<div class="container-wide">
+  <div class="flex-between" style="margin-bottom:14px;">
+    <h2 class="mt-0" style="margin-bottom:0;">Lista de relatórios</h2>
+    <a href="form.html" class="btn btn-primary" id="btnNovo">+ Novo relatório</a>
+  </div>
+
+  <div class="filters card" style="padding:12px 14px;">
+    <div class="field" style="flex:2;">
+      <label for="busca">Buscar</label>
+      <input type="search" id="busca" placeholder="Protocolo, título ou operação...">
+    </div>
+    <div class="field">
+      <label for="filtroStatus">Status</label>
+      <select id="filtroStatus">
+        <option value="">Todos</option>
+        <option value="aberto">Aberto</option>
+        <option value="andamento">Em andamento</option>
+        <option value="concluido">Concluído</option>
+        <option value="atrasado">Atrasado</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="filtroOp">Operação</label>
+      <select id="filtroOp">
+        <option value="">Todas</option>
+        <option value="CD C&V">CD C&V</option>
+        <option value="CD TELE-RIO">CD TELE-RIO</option>
+        <option value="CD HORTIFRUTI">CD HORTIFRUTI</option>
+        <option value="CD LASA">CD LASA</option>
+        <option value="FROTA">FROTA</option>
+        <option value="MANUTENÇÃO">MANUTENÇÃO</option>
+        <option value="GERAL">GERAL</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="lista"></div>
+  <div class="empty hidden" id="vazio">
+    <strong>Nenhum relatório encontrado</strong>
+    Ajuste os filtros ou cadastre o primeiro relatório.
+  </div>
+</div>
+
+<script type="module">
+  import {
+    auth, signOut, protegerPagina, RELATORIOS_COL, getDocs, query, orderBy,
+    infoUsuario, statusBadge, fmtDataHora, escapeHtml, podeCriar, aplicarClasseDispositivo
+  } from "./app-core.js";
+
+  aplicarClasseDispositivo();
+
+  let todos = [];
+  let userAtual = null;
+
+  protegerPagina(async (user) => {
+    userAtual = user;
+    const info = infoUsuario(user.email);
+    document.getElementById("userLabel").textContent = info.nome;
+
+    if (!podeCriar(user.email)) {
+      document.getElementById("btnNovo").classList.add("hidden");
+    }
+
+    await carregar();
+  });
+
+  document.getElementById("btnSair").addEventListener("click", async () => {
+    await signOut(auth);
+    location.href = "login.html";
+  });
+
+  ["busca", "filtroStatus", "filtroOp"].forEach(id => {
+    document.getElementById(id).addEventListener("input", render);
+    document.getElementById(id).addEventListener("change", render);
+  });
+
+  async function carregar() {
+    const snap = await getDocs(query(RELATORIOS_COL, orderBy("criadoEm", "desc")));
+    todos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+  }
+
+  function render() {
+    const q = (document.getElementById("busca").value || "").trim().toLowerCase();
+    const st = document.getElementById("filtroStatus").value;
+    const op = document.getElementById("filtroOp").value;
+
+    let lista = todos.filter(r => {
+      if (st && r.status !== st) return false;
+      if (op && r.operacao !== op) return false;
+      if (q) {
+        const blob = `${r.protocolo || ""} ${r.titulo || ""} ${r.operacao || ""} ${r.observacao || ""}`.toLowerCase();
+        if (!blob.includes(q)) return false;
+      }
+      return true;
+    });
+
+    const el = document.getElementById("lista");
+    const vazio = document.getElementById("vazio");
+
+    if (!lista.length) {
+      el.innerHTML = "";
+      vazio.classList.remove("hidden");
+      return;
+    }
+    vazio.classList.add("hidden");
+
+    el.innerHTML = lista.map(r => {
+      const temCobranca = (r.cobrancas || []).length > 0;
+      return `
+        <a href="detalhe.html?id=${encodeURIComponent(r.id)}" class="card" style="display:block;color:inherit;text-decoration:none;">
+          <div class="card-header">
+            <div>
+              <p class="card-title">${escapeHtml(r.protocolo || r.id)} — ${escapeHtml(r.titulo || "Sem título")}</p>
+              <div class="card-meta">
+                ${escapeHtml(r.operacao || "—")} · Lançado por ${escapeHtml(r.criadoPorNome || "—")} · ${fmtDataHora(r.criadoEm)}
+                ${temCobranca ? ' · <span style="color:var(--orange);font-weight:700;">⚠ Cobrança</span>' : ""}
+              </div>
+            </div>
+            <div>${statusBadge(r.status || "aberto")}</div>
+          </div>
+          ${r.observacao ? `<p class="text-muted" style="margin:6px 0 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${escapeHtml(r.observacao)}</p>` : ""}
+        </a>`;
+    }).join("");
+  }
+</script>
+</body>
+</html>

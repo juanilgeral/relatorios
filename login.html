@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Entrar — Relatórios Operacionais</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="login-shell">
+  <div class="login-card">
+    <img src="logo.jpg" alt="Juanil" style="height:40px;display:block;margin-bottom:14px;border-radius:5px;">
+    <h1>Relatórios Operacionais</h1>
+    <p>Juanil Transportes Rodoviários — acesso restrito.</p>
+
+    <div class="field">
+      <label>Você está acessando de:</label>
+      <div class="device-choice" id="deviceChoice">
+        <button type="button" data-device="mobile">📱 Celular</button>
+        <button type="button" data-device="desktop">💻 Computador</button>
+      </div>
+    </div>
+
+    <div class="login-error" id="loginError">E-mail ou senha inválidos.</div>
+    <form id="loginForm">
+      <div class="field">
+        <label for="email">E-mail</label>
+        <input type="email" id="email" required autocomplete="username" placeholder="ex.: operacional@juanil.com.br">
+      </div>
+      <div class="field">
+        <label for="senha">Senha</label>
+        <input type="password" id="senha" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="btnEntrar">Entrar</button>
+    </form>
+  </div>
+</div>
+<script type="module">
+  import {
+    auth, signInWithEmailAndPassword, onAuthStateChanged,
+    salvarDispositivo, obterDispositivo, aplicarClasseDispositivo
+  } from "./app-core.js";
+
+  // Preferência de dispositivo
+  const salvo = obterDispositivo();
+  if (salvo) {
+    document.querySelector(`#deviceChoice [data-device="${salvo}"]`)?.classList.add("active");
+    aplicarClasseDispositivo();
+  }
+
+  document.getElementById("deviceChoice").addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-device]");
+    if (!btn) return;
+    document.querySelectorAll("#deviceChoice button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    salvarDispositivo(btn.dataset.device);
+    aplicarClasseDispositivo();
+  });
+
+  onAuthStateChanged(auth, (user) => {
+    if (user) location.href = "index.html";
+  });
+
+  const form = document.getElementById("loginForm");
+  const erro = document.getElementById("loginError");
+  const btn = document.getElementById("btnEntrar");
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const device = document.querySelector("#deviceChoice button.active")?.dataset.device;
+    if (!device) {
+      erro.textContent = "Selecione se está no celular ou no computador.";
+      erro.style.display = "block";
+      return;
+    }
+    salvarDispositivo(device);
+    erro.style.display = "none";
+    btn.textContent = "Entrando...";
+    btn.disabled = true;
+    try {
+      await signInWithEmailAndPassword(
+        auth,
+        document.getElementById("email").value.trim().toLowerCase(),
+        document.getElementById("senha").value
+      );
+      location.href = "index.html";
+    } catch (err) {
+      console.error(err);
+      erro.textContent = "Não foi possível entrar. Confira o e-mail e a senha.";
+      erro.style.display = "block";
+      btn.textContent = "Entrar";
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

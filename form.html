@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Novo / Editar Relatório — Juanil</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="app-header">
+  <div class="brand">
+    <img src="logo.jpg" alt="Juanil">
+    <span id="formTitulo">Novo relatório</span>
+  </div>
+  <div class="user-info">
+    <span id="userLabel">—</span>
+    <a href="index.html" class="btn btn-sm btn-outline" style="color:#fff;border-color:rgba(255,255,255,.4);">Voltar</a>
+  </div>
+</header>
+
+<div class="container">
+  <form id="formRel" class="card">
+
+    <!-- Dados básicos -->
+    <div class="field-row">
+      <div class="field">
+        <label for="titulo">Título / Tipo da ocorrência *</label>
+        <input type="text" id="titulo" required maxlength="120" placeholder="Ex.: Avaria em carga, atraso de rota...">
+      </div>
+      <div class="field">
+        <label for="operacao">Operação / CD *</label>
+        <select id="operacao" required>
+          <option value="">Selecione...</option>
+          <option value="CD C&V">CD C&V</option>
+          <option value="CD TELE-RIO">CD TELE-RIO</option>
+          <option value="CD HORTIFRUTI">CD HORTIFRUTI</option>
+          <option value="CD LASA">CD LASA</option>
+          <option value="FROTA">FROTA</option>
+          <option value="MANUTENÇÃO">MANUTENÇÃO</option>
+          <option value="GERAL">GERAL</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="dataOcorrencia">Data da ocorrência</label>
+        <input type="date" id="dataOcorrencia">
+      </div>
+      <div class="field">
+        <label for="status">Status</label>
+        <select id="status">
+          <option value="aberto">Aberto</option>
+          <option value="andamento">Em andamento</option>
+          <option value="concluido">Concluído</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="prazo">Prazo para finalização (opcional)</label>
+      <input type="date" id="prazo">
+    </div>
+
+    <!-- REGRAS DE NEGÓCIO: Avaria -->
+    <div class="field">
+      <label for="houveAvaria">Houve avaria / dano? *</label>
+      <select id="houveAvaria" required>
+        <option value="">Selecione...</option>
+        <option value="nao">Não</option>
+        <option value="sim">Sim</option>
+      </select>
+    </div>
+    <div class="regra-aviso" id="avisoAvaria">
+      ⚠ Como você marcou <strong>Sim</strong> para avaria, é <strong>obrigatório</strong> anexar pelo menos 1 foto do dano, da etiqueta do produto ou da placa do equipamento.
+    </div>
+
+    <!-- REGRAS DE NEGÓCIO: Meta de expedição -->
+    <div class="field-row">
+      <div class="field">
+        <label for="metaEsperada">Meta de expedição esperada (unidades)</label>
+        <input type="number" id="metaEsperada" min="0" step="1" placeholder="Ex.: 1000">
+      </div>
+      <div class="field">
+        <label for="metaRealizada">Meta realizada (unidades)</label>
+        <input type="number" id="metaRealizada" min="0" step="1" placeholder="Ex.: 720">
+      </div>
+    </div>
+    <div class="regra-aviso" id="avisoMeta">
+      ⚠ A realização está <strong>abaixo de 80%</strong> da meta. É <strong>obrigatório</strong> descrever o motivo no campo abaixo.
+    </div>
+    <div class="field" id="campoMotivoMeta" style="display:none;">
+      <label for="motivoMeta">Motivo da meta abaixo do esperado *</label>
+      <textarea id="motivoMeta" maxlength="2000" placeholder="Explique o motivo (falta de equipe, atraso de fornecedor, equipamento parado...)"></textarea>
+    </div>
+
+    <div class="field">
+      <label for="observacao">Observação / Descrição detalhada *</label>
+      <textarea id="observacao" required maxlength="4000" placeholder="Descreva a ocorrência com o máximo de detalhes..."></textarea>
+    </div>
+
+    <!-- FOTOS (máx. 4) — com contexto -->
+    <div class="media-zone">
+      <h4>Fotos (máximo 2) — com contexto obrigatório</h4>
+      <p class="text-muted" style="margin-top:0;">Aponte a câmera para a <strong>etiqueta do produto</strong>, o <strong>dano</strong> ou a <strong>placa do equipamento</strong>. Fotos genéricas não atendem. As imagens são <strong>comprimidas</strong> no aparelho para economizar dados.</p>
+      <div class="media-actions">
+        <button type="button" class="btn btn-outline btn-sm" id="btnFotoCamera">📷 Câmera</button>
+        <button type="button" class="btn btn-outline btn-sm" id="btnFotoArquivo">📁 Arquivo</button>
+      </div>
+      <input type="file" id="inputFotos" accept="image/*" capture="environment" multiple hidden>
+      <input type="file" id="inputFotosPc" accept="image/*" multiple hidden>
+      <div class="media-preview" id="previewFotos"></div>
+      <div class="progress-bar" id="progFotos"><div class="fill"></div></div>
+      <p class="text-muted" id="infoFotos">0 / 2 fotos</p>
+    </div>
+
+    <!-- VÍDEO (máx. 1, até 1 min) — com contexto -->
+    <div class="media-zone">
+      <h4>Vídeo (máximo 1, ≤ 20 segundos) — com contexto</h4>
+      <p class="text-muted" style="margin-top:0;">Filme a etiqueta, o dano ou a placa do equipamento com clareza. Limite curto para não gerar custo de armazenamento.</p>
+      <div class="media-actions">
+        <button type="button" class="btn btn-outline btn-sm" id="btnVideoCamera">🎥 Gravar</button>
+        <button type="button" class="btn btn-outline btn-sm" id="btnVideoArquivo">📁 Arquivo</button>
+      </div>
+      <input type="file" id="inputVideo" accept="video/*" capture="environment" hidden>
+      <input type="file" id="inputVideoPc" accept="video/*" hidden>
+      <div class="media-preview" id="previewVideo"></div>
+      <div class="progress-bar" id="progVideo"><div class="fill"></div></div>
+      <p class="text-muted" id="infoVideo">Nenhum vídeo selecionado</p>
+    </div>
+
+    <!-- GEOLOCALIZAÇÃO (automática) -->
+    <div class="field">
+      <label>Localização (GPS) — capturada automaticamente ao salvar</label>
+      <div id="geoStatus" class="geo-badge falhou">Aguardando salvamento...</div>
+    </div>
+
+    <!-- ASSINATURA DIGITAL -->
+    <div class="field">
+      <label>Assinatura do responsável *</label>
+      <p class="text-muted" style="margin:0 0 8px;">Assine com o dedo (ou mouse) confirmando que as informações são verídicas.</p>
+      <div class="signature-wrap">
+        <canvas id="canvasAssinatura"></canvas>
+        <div class="signature-bar">
+          <span>Assine aqui</span>
+          <button type="button" class="btn btn-sm btn-outline" id="btnLimparAssinatura">Limpar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="regra-aviso erro" id="avisoValidacao"></div>
+
+    <div class="btn-group">
+      <button type="submit" class="btn btn-primary" id="btnSalvar">Salvar relatório</button>
+      <a href="index.html" class="btn btn-outline">Cancelar</a>
+    </div>
+  </form>
+</div>
+
+<!-- Modal de contexto antes de anexar mídia -->
+<div class="modal-overlay hidden" id="modalContexto">
+  <div class="modal-box">
+    <h3 id="modalTitulo">Antes de fotografar</h3>
+    <p id="modalTexto">Para o relatório ter validade, a imagem precisa mostrar o contexto real da ocorrência.</p>
+    <div class="dica" id="modalDica">
+      Aponte a câmera para:
+      <br>• a <strong>etiqueta do produto</strong>, ou
+      <br>• o <strong>dano / avaria</strong>, ou
+      <br>• a <strong>placa do equipamento</strong>.
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-primary" id="modalConfirmar">Entendi — continuar</button>
+      <button type="button" class="btn btn-outline" id="modalCancelar">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import {
+    auth, protegerPagina, RELATORIOS_COL, doc, getDoc, setDoc, updateDoc,
+    serverTimestamp, gerarProtocolo, infoUsuario, podeCriar, podeEditar,
+    uploadAnexo, obterDuracaoVideo, toast, aplicarClasseDispositivo,
+    obterGeolocalizacao, initSignaturePad, comprimirImagem,
+    MAX_FOTOS, MAX_FOTO_MB, MAX_VIDEO_SEGUNDOS, MAX_VIDEO_MB
+  } from "./app-core.js";
+
+  aplicarClasseDispositivo();
+
+  const params = new URLSearchParams(location.search);
+  const editId = params.get("id");
+  let userAtual = null;
+  let relatorioExistente = null;
+
+  let fotosPendentes = [];
+  let fotosExistentes = [];
+  let videoPendente = null;
+  let videoExistente = null;
+
+  let signaturePad = null;
+  let pendenteAcaoMidia = null; // { tipo: 'foto'|'video', origem: 'camera'|'arquivo' }
+
+  // ---- Regras condicionais na UI ----
+  function atualizarRegras() {
+    const avaria = document.getElementById("houveAvaria").value;
+    const avisoA = document.getElementById("avisoAvaria");
+    if (avaria === "sim") avisoA.classList.add("show");
+    else avisoA.classList.remove("show");
+
+    const esperada = parseFloat(document.getElementById("metaEsperada").value);
+    const realizada = parseFloat(document.getElementById("metaRealizada").value);
+    const avisoM = document.getElementById("avisoMeta");
+    const campoMotivo = document.getElementById("campoMotivoMeta");
+    const abaixo = Number.isFinite(esperada) && esperada > 0 && Number.isFinite(realizada) && (realizada / esperada) < 0.8;
+
+    if (abaixo) {
+      avisoM.classList.add("show");
+      campoMotivo.style.display = "block";
+    } else {
+      avisoM.classList.remove("show");
+      campoMotivo.style.display = "none";
+    }
+  }
+
+  ["houveAvaria", "metaEsperada", "metaRealizada"].forEach(id => {
+    document.getElementById(id).addEventListener("change", atualizarRegras);
+    document.getElementById(id).addEventListener("input", atualizarRegras);
+  });
+
+  // ---- Modal de contexto ----
+  const modal = document.getElementById("modalContexto");
+
+  function abrirModalContexto(tipo, origem) {
+    pendenteAcaoMidia = { tipo, origem };
+    document.getElementById("modalTitulo").textContent =
+      tipo === "foto" ? "Antes de fotografar" : "Antes de gravar o vídeo";
+    document.getElementById("modalTexto").textContent =
+      tipo === "foto"
+        ? "Para o relatório ter validade, a foto precisa mostrar o contexto real da ocorrência — não use imagens genéricas."
+        : "Filme com clareza a etiqueta, o dano ou a placa do equipamento. Vídeos genéricos não atendem.";
+    modal.classList.remove("hidden");
+  }
+
+  document.getElementById("modalCancelar").addEventListener("click", () => {
+    modal.classList.add("hidden");
+    pendenteAcaoMidia = null;
+  });
+
+  document.getElementById("modalConfirmar").addEventListener("click", () => {
+    modal.classList.add("hidden");
+    if (!pendenteAcaoMidia) return;
+    const { tipo, origem } = pendenteAcaoMidia;
+    pendenteAcaoMidia = null;
+    if (tipo === "foto") {
+      document.getElementById(origem === "camera" ? "inputFotos" : "inputFotosPc").click();
+    } else {
+      document.getElementById(origem === "camera" ? "inputVideo" : "inputVideoPc").click();
+    }
+  });
+
+  document.getElementById("btnFotoCamera").addEventListener("click", () => abrirModalContexto("foto", "camera"));
+  document.getElementById("btnFotoArquivo").addEventListener("click", () => abrirModalContexto("foto", "arquivo"));
+  document.getElementById("btnVideoCamera").addEventListener("click", () => abrirModalContexto("video", "camera"));
+  document.getElementById("btnVideoArquivo").addEventListener("click", () => abrirModalContexto("video", "arquivo"));
+
+  // ---- Auth e carga ----
+  protegerPagina(async (user) => {
+    userAtual = user;
+    const info = infoUsuario(user.email);
+    document.getElementById("userLabel").textContent = info.nome;
+
+    if (!editId && !podeCriar(user.email)) {
+      toast("A diretoria não cria relatórios — apenas fiscaliza.", "erro");
+      setTimeout(() => location.href = "index.html", 1800);
+      return;
+    }
+
+    const opSelect = document.getElementById("operacao");
+    if (info.operacao && info.operacao !== "DIRETORIA" && info.operacao !== "GERAL") {
+      opSelect.value = info.operacao;
+    }
+    document.getElementById("dataOcorrencia").value = new Date().toISOString().slice(0, 10);
+
+    // Assinatura
+    signaturePad = initSignaturePad(document.getElementById("canvasAssinatura"));
+    document.getElementById("btnLimparAssinatura").addEventListener("click", () => signaturePad.limpar());
+
+    if (editId) {
+      document.getElementById("formTitulo").textContent = "Editar relatório";
+      const snap = await getDoc(doc(RELATORIOS_COL, editId));
+      if (!snap.exists()) {
+        toast("Relatório não encontrado.", "erro");
+        setTimeout(() => location.href = "index.html", 1500);
+        return;
+      }
+      relatorioExistente = { id: snap.id, ...snap.data() };
+      if (!podeEditar(relatorioExistente, user.email, user.uid)) {
+        toast("Você não pode editar este relatório.", "erro");
+        setTimeout(() => location.href = "detalhe.html?id=" + editId, 1500);
+        return;
+      }
+      preencherForm(relatorioExistente);
+    }
+  });
+
+  function preencherForm(r) {
+    document.getElementById("titulo").value = r.titulo || "";
+    document.getElementById("operacao").value = r.operacao || "";
+    document.getElementById("dataOcorrencia").value = r.dataOcorrencia || "";
+    document.getElementById("status").value = r.status || "aberto";
+    document.getElementById("prazo").value = r.prazo || "";
+    document.getElementById("observacao").value = r.observacao || "";
+    document.getElementById("houveAvaria").value = r.houveAvaria || "";
+    document.getElementById("metaEsperada").value = r.metaEsperada ?? "";
+    document.getElementById("metaRealizada").value = r.metaRealizada ?? "";
+    document.getElementById("motivoMeta").value = r.motivoMeta || "";
+    fotosExistentes = Array.isArray(r.fotos) ? [...r.fotos] : [];
+    videoExistente = r.video || null;
+    renderPreviews();
+    atualizarRegras();
+    // Assinatura existente não é reeditável no canvas (fica no documento); nova assinatura sobrescreve
+  }
+
+  // ---- Fotos ----
+  async function onFotosSelected(files) {
+    const arr = Array.from(files || []);
+    for (const f of arr) {
+      if (!f.type.startsWith("image/")) continue;
+      const total = fotosExistentes.length + fotosPendentes.length;
+      if (total >= MAX_FOTOS) {
+        toast(`Máximo de ${MAX_FOTOS} fotos por relatório (plano gratuito).`, "erro");
+        break;
+      }
+      if (f.size > MAX_FOTO_MB * 1024 * 1024) {
+        toast(`Foto "${f.name}" muito grande (máx. ${MAX_FOTO_MB} MB antes de comprimir).`, "erro");
+        continue;
+      }
+      try {
+        toast("Comprimindo foto...", "");
+        const comprimida = await comprimirImagem(f);
+        fotosPendentes.push(comprimida);
+      } catch (err) {
+        toast("Falha ao comprimir: " + (err.message || err), "erro");
+      }
+    }
+    renderPreviews();
+  }
+
+  document.getElementById("inputFotos").addEventListener("change", e => {
+    onFotosSelected(e.target.files);
+    e.target.value = "";
+  });
+  document.getElementById("inputFotosPc").addEventListener("change", e => {
+    onFotosSelected(e.target.files);
+    e.target.value = "";
+  });
+
+  // ---- Vídeo ----
+  async function onVideoSelected(file) {
+    if (!file) return;
+    if (!file.type.startsWith("video/")) {
+      toast("Selecione um arquivo de vídeo.", "erro");
+      return;
+    }
+    if (file.size > MAX_VIDEO_MB * 1024 * 1024) {
+      toast(`Vídeo muito grande (máx. ${MAX_VIDEO_MB} MB).`, "erro");
+      return;
+    }
+    try {
+      const dur = await obterDuracaoVideo(file);
+      if (dur > MAX_VIDEO_SEGUNDOS + 0.5) {
+        toast(`Vídeo tem ${Math.round(dur)}s — máximo permitido é ${MAX_VIDEO_SEGUNDOS} segundos (plano gratuito).`, "erro");
+        return;
+      }
+    } catch (err) {
+      toast("Não foi possível validar a duração do vídeo.", "erro");
+      return;
+    }
+    videoPendente = file;
+    videoExistente = null;
+    renderPreviews();
+  }
+
+  document.getElementById("inputVideo").addEventListener("change", e => {
+    onVideoSelected(e.target.files?.[0]);
+    e.target.value = "";
+  });
+  document.getElementById("inputVideoPc").addEventListener("change", e => {
+    onVideoSelected(e.target.files?.[0]);
+    e.target.value = "";
+  });
+
+  function renderPreviews() {
+    const pf = document.getElementById("previewFotos");
+    pf.innerHTML = "";
+    fotosExistentes.forEach((f, i) => {
+      pf.appendChild(criarItemFoto(f.url, f.nome, () => {
+        fotosExistentes.splice(i, 1);
+        renderPreviews();
+      }));
+    });
+    fotosPendentes.forEach((f, i) => {
+      const url = URL.createObjectURL(f);
+      pf.appendChild(criarItemFoto(url, f.name, () => {
+        fotosPendentes.splice(i, 1);
+        renderPreviews();
+      }));
+    });
+    document.getElementById("infoFotos").textContent =
+      `${fotosExistentes.length + fotosPendentes.length} / ${MAX_FOTOS} fotos`;
+
+    const pv = document.getElementById("previewVideo");
+    pv.innerHTML = "";
+    if (videoExistente) {
+      pv.appendChild(criarItemVideo(videoExistente.url, videoExistente.nome, () => {
+        videoExistente = null;
+        renderPreviews();
+      }));
+      document.getElementById("infoVideo").textContent = videoExistente.nome || "Vídeo anexado";
+    } else if (videoPendente) {
+      const url = URL.createObjectURL(videoPendente);
+      pv.appendChild(criarItemVideo(url, videoPendente.name, () => {
+        videoPendente = null;
+        renderPreviews();
+      }));
+      document.getElementById("infoVideo").textContent = videoPendente.name;
+    } else {
+      document.getElementById("infoVideo").textContent = "Nenhum vídeo selecionado";
+    }
+  }
+
+  function criarItemFoto(src, nome, onRemove) {
+    const div = document.createElement("div");
+    div.className = "media-item";
+    div.innerHTML = `<img src="${src}" alt=""><button type="button" class="remove-btn" title="Remover">×</button><div class="name">${nome || ""}</div>`;
+    div.querySelector(".remove-btn").onclick = onRemove;
+    return div;
+  }
+
+  function criarItemVideo(src, nome, onRemove) {
+    const div = document.createElement("div");
+    div.className = "media-item";
+    div.style.width = "160px";
+    div.innerHTML = `<video src="${src}" muted></video><button type="button" class="remove-btn" title="Remover">×</button><div class="name">${nome || ""}</div>`;
+    div.querySelector(".remove-btn").onclick = onRemove;
+    return div;
+  }
+
+  // ---- Validação de regras de negócio ----
+  function validarRegras() {
+    const avisos = [];
+    const avaria = document.getElementById("houveAvaria").value;
+    const totalFotos = fotosExistentes.length + fotosPendentes.length;
+
+    if (avaria === "sim" && totalFotos < 1) {
+      avisos.push("Houve avaria: anexe pelo menos 1 foto do dano, etiqueta ou placa.");
+    }
+
+    const esperada = parseFloat(document.getElementById("metaEsperada").value);
+    const realizada = parseFloat(document.getElementById("metaRealizada").value);
+    const abaixo = Number.isFinite(esperada) && esperada > 0 && Number.isFinite(realizada) && (realizada / esperada) < 0.8;
+    const motivo = document.getElementById("motivoMeta").value.trim();
+    if (abaixo && !motivo) {
+      avisos.push("Meta abaixo de 80%: descreva obrigatoriamente o motivo.");
+    }
+
+    if (!signaturePad || !signaturePad.temAssinatura()) {
+      // Em edição, se já existe assinatura salva, não obriga de novo
+      if (!(editId && relatorioExistente?.assinaturaDataUrl)) {
+        avisos.push("Assine o relatório com o dedo (ou mouse) para confirmar as informações.");
+      }
+    }
+
+    return avisos;
+  }
+
+  // ---- Salvar ----
+  document.getElementById("formRel").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const avisoEl = document.getElementById("avisoValidacao");
+    avisoEl.classList.remove("show");
+    avisoEl.textContent = "";
+
+    const problemas = validarRegras();
+    if (problemas.length) {
+      avisoEl.innerHTML = problemas.map(p => "• " + p).join("<br>");
+      avisoEl.classList.add("show");
+      toast("Corrija os itens obrigatórios antes de salvar.", "erro");
+      return;
+    }
+
+    const btn = document.getElementById("btnSalvar");
+    btn.disabled = true;
+    btn.textContent = "Obtendo localização...";
+
+    // Geolocalização automática
+    const geoStatus = document.getElementById("geoStatus");
+    const geo = await obterGeolocalizacao();
+    if (geo.ok) {
+      geoStatus.className = "geo-badge";
+      geoStatus.textContent = `📍 ${geo.lat.toFixed(5)}, ${geo.lng.toFixed(5)} (±${Math.round(geo.precisao)} m)`;
+    } else {
+      geoStatus.className = "geo-badge falhou";
+      geoStatus.textContent = "📍 Localização não disponível — " + (geo.erro || "permissão negada");
+      // Não bloqueia o salvamento, mas registra a falha
+    }
+
+    btn.textContent = "Salvando...";
+
+    try {
+      const info = infoUsuario(userAtual.email);
+      const assinaturaDataUrl = (signaturePad && signaturePad.temAssinatura())
+        ? signaturePad.toDataURL()
+        : (relatorioExistente?.assinaturaDataUrl || null);
+
+      const dados = {
+        titulo: document.getElementById("titulo").value.trim(),
+        operacao: document.getElementById("operacao").value,
+        dataOcorrencia: document.getElementById("dataOcorrencia").value || null,
+        status: document.getElementById("status").value,
+        prazo: document.getElementById("prazo").value || null,
+        observacao: document.getElementById("observacao").value.trim(),
+        houveAvaria: document.getElementById("houveAvaria").value,
+        metaEsperada: document.getElementById("metaEsperada").value !== ""
+          ? Number(document.getElementById("metaEsperada").value) : null,
+        metaRealizada: document.getElementById("metaRealizada").value !== ""
+          ? Number(document.getElementById("metaRealizada").value) : null,
+        motivoMeta: document.getElementById("motivoMeta").value.trim() || null,
+        geolocalizacao: geo.ok ? {
+          lat: geo.lat,
+          lng: geo.lng,
+          precisao: geo.precisao,
+          capturadoEm: new Date(geo.timestamp).toISOString()
+        } : { ok: false, erro: geo.erro || "indisponível" },
+        assinaturaDataUrl,
+        assinadoEm: assinaturaDataUrl ? new Date().toISOString() : null,
+        atualizadoEm: serverTimestamp(),
+        atualizadoPor: userAtual.email,
+        atualizadoPorNome: info.nome
+      };
+
+      let protocolo, docRef;
+
+      if (editId) {
+        protocolo = relatorioExistente.protocolo;
+        docRef = doc(RELATORIOS_COL, editId);
+      } else {
+        protocolo = await gerarProtocolo();
+        docRef = doc(RELATORIOS_COL, protocolo);
+        dados.protocolo = protocolo;
+        dados.criadoEm = serverTimestamp();
+        dados.criadoPorUid = userAtual.uid;
+        dados.criadoPor = userAtual.email;
+        dados.criadoPorNome = info.nome;
+        dados.cobrancas = [];
+        dados.fotos = [];
+        dados.video = null;
+      }
+
+      // Upload fotos
+      const progF = document.getElementById("progFotos");
+      const fillF = progF.querySelector(".fill");
+      if (fotosPendentes.length) {
+        progF.style.display = "block";
+        for (let i = 0; i < fotosPendentes.length; i++) {
+          const file = fotosPendentes[i];
+          const up = await uploadAnexo(protocolo, "fotos", file, pct => {
+            fillF.style.width = `${Math.round(((i + pct / 100) / fotosPendentes.length) * 100)}%`;
+          });
+          fotosExistentes.push(up);
+        }
+        progF.style.display = "none";
+        fotosPendentes = [];
+      }
+
+      // Upload vídeo
+      if (videoPendente) {
+        const progV = document.getElementById("progVideo");
+        const fillV = progV.querySelector(".fill");
+        progV.style.display = "block";
+        videoExistente = await uploadAnexo(protocolo, "video", videoPendente, pct => {
+          fillV.style.width = pct + "%";
+        });
+        progV.style.display = "none";
+        videoPendente = null;
+      }
+
+      dados.fotos = fotosExistentes;
+      dados.video = videoExistente;
+
+      if (editId) {
+        await updateDoc(docRef, dados);
+      } else {
+        await setDoc(docRef, dados);
+      }
+
+      toast("Relatório salvo com sucesso!", "ok");
+      setTimeout(() => location.href = "detalhe.html?id=" + encodeURIComponent(protocolo), 800);
+    } catch (err) {
+      console.error(err);
+      toast("Erro ao salvar: " + (err.message || err), "erro");
+      btn.disabled = false;
+      btn.textContent = "Salvar relatório";
+    }
+  });
+</script>
+</body>
+</html>

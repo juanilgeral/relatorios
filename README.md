@@ -21,16 +21,10 @@ com as senhas abaixo:
 | E-mail | Senha | Papel |
 |--------|-------|-------|
 | `operacional@juanil.com.br` | `Lo9ple4kldsf` | **Administrador** — acesso total |
-| `operacional_2@juanil.com.br` | `@Juanil7#` | Operacional |
-| `suportefrota@juanil.com.br` | `@Juanil7#` | Operacional (Frota) |
-| `manutencao@juanil.com.br` | `@Juanil7#` | Operacional (Manutenção) |
-| `cd_cv@juanil.com.br` | `@Juanil7#` | CD C&V |
-| `cd_tele_rio@juanil.com.br` | `@Juanil7#` | CD TELE-RIO |
-| `cd_hortifruti@juanil.com.br` | `@Juanil7#` | CD HORTIFRUTI |
-| `cd_lasa@juanil.com.br` | `@Juanil7#` | CD LASA |
-| `diretoria@juanil.com.br` | `@Juanil7` | **Diretoria** — só fiscaliza e registra cobranças (não cria relatórios) |
+| `lucasoliveira.d3v@gmail.com` | `123456` | CD TELE-RIO |
+| `juanil@juanil.com.br` | `@Juanil7` | **Diretoria** — só fiscaliza e registra cobranças (não cria relatórios) |
 
-> **Importante:** a senha da DIRETORIA é `@Juanil7` (sem o `#` no final), conforme informado.
+> Os demais usuários (operacional_2, suportefrota, manutencao, cd_cv, cd_hortifruti, cd_lasa) foram removidos do Authentication.
 
 ### Regras de permissão
 

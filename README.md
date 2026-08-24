@@ -28,9 +28,38 @@ com as senhas abaixo:
 
 ### Regras de permissão
 
-- **Admin (OPERACIONAL):** cria, edita e exclui qualquer relatório; registra cobranças.
-- **Operacionais / CDs:** criam relatórios; editam/excluem apenas os que eles mesmos criaram (enquanto não estiverem com status *Concluído*).
-- **Diretoria:** visualiza todos os relatórios; pode registrar **cobranças**, determinações, cobranças de produtividade ou agradecimentos, com **prazo de finalização**. Não cria nem altera o conteúdo principal do relatório.
+- **Admin (OPERACIONAL):** cria, edita e exclui qualquer relatório de qualquer CD; registra cobranças.
+- **Operacionais / CDs:** só veem e criam relatórios do **próprio CD** (veja abaixo); editam/excluem apenas os que eles mesmos criaram (enquanto não estiverem com status *Concluído*).
+- **Diretoria:** visualiza todos os relatórios de todos os CDs; pode registrar **cobranças**, determinações, cobranças de produtividade ou agradecimentos, com **prazo de finalização**. Não cria nem altera o conteúdo principal do relatório.
+
+### Acesso por CD/Operação (quem vê o quê)
+
+Cada usuário operacional só enxerga e só consegue lançar relatórios do CD que
+o **Admin** atribuiu a ele. Isso é feito **sem precisar de código**, direto no
+Firebase Console:
+
+1. Firestore Database → aba **Dados** → coleção **`usuarios`**.
+2. Clique em **Adicionar documento**.
+3. **ID do documento:** o e-mail exato do usuário (ex.: `lucasoliveira.d3v@gmail.com`).
+4. Campos do documento:
+   - `nome` (string) — nome de exibição, ex.: `CD TELE-RIO`
+   - `operacao` (string) — precisa ser **idêntico** a um dos valores da lista:
+     `CD C&V`, `CD TELE-RIO`, `CD HORTIFRUTI`, `CD LASA`, `FROTA`, `MANUTENÇÃO`, `GERAL`
+5. Salvar. O usuário já passa a ver/lançar só naquele CD no próximo login (ou ao dar F5 na sessão atual).
+
+> Um usuário autenticado que ainda **não tenha** esse documento vê a tela
+> "Seu acesso ainda não foi configurado" e não consegue criar relatórios,
+> até o Admin cadastrar o CD dele.
+
+> Essa restrição é aplicada tanto na tela (campo Operação travado) quanto
+> nas regras do Firestore (`firestore.rules`) — ou seja, mesmo editando a URL
+> diretamente, o usuário não consegue ver ou criar relatórios de outro CD.
+
+**Exemplo atual:**
+
+| E-mail | Documento em `usuarios` |
+|--------|--------------------------|
+| `lucasoliveira.d3v@gmail.com` | `{ nome: "CD TELE-RIO", operacao: "CD TELE-RIO" }` |
 
 ## Funcionalidades
 

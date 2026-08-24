@@ -46,7 +46,7 @@
 <script type="module">
   import {
     auth, signOut, protegerPagina, RELATORIOS_COL, doc, getDoc, updateDoc, deleteDoc,
-    serverTimestamp, arrayUnion, infoUsuario, statusBadge, fmtData, fmtDataHora,
+    serverTimestamp, arrayUnion, statusBadge, fmtData, fmtDataHora,
     escapeHtml, podeEditar, podeExcluir, podeCobrar, toast, aplicarClasseDispositivo
   } from "./app-core.js";
 
@@ -55,26 +55,34 @@
   const params = new URLSearchParams(location.search);
   const id = params.get("id");
   let userAtual = null;
+  let perfilAtual = null;
   let rel = null;
 
   if (!id) {
     location.href = "index.html";
   }
 
-  protegerPagina(async (user) => {
+  protegerPagina(async (user, perfil) => {
     userAtual = user;
-    document.getElementById("userLabel").textContent = infoUsuario(user.email).nome;
+    perfilAtual = perfil;
+    document.getElementById("userLabel").textContent = perfil.nome;
     await carregar();
   });
 
   async function carregar() {
-    const snap = await getDoc(doc(RELATORIOS_COL, id));
-    if (!snap.exists()) {
-      document.getElementById("conteudo").innerHTML = "<p>Relatório não encontrado.</p>";
-      return;
+    try {
+      const snap = await getDoc(doc(RELATORIOS_COL, id));
+      if (!snap.exists()) {
+        document.getElementById("conteudo").innerHTML = "<p>Relatório não encontrado.</p>";
+        return;
+      }
+      rel = { id: snap.id, ...snap.data() };
+      render();
+    } catch (e) {
+      console.error(e);
+      document.getElementById("conteudo").innerHTML =
+        "<p>Você não tem permissão para ver este relatório.</p>";
     }
-    rel = { id: snap.id, ...snap.data() };
-    render();
   }
 
   function render() {
@@ -204,17 +212,17 @@
       `).join("");
     }
 
-    if (podeCobrar(userAtual.email)) {
+    if (podeCobrar(perfilAtual)) {
       document.getElementById("formCobranca").classList.remove("hidden");
     }
 
     // Ações
     const acoes = document.getElementById("acoes");
     let html = "";
-    if (podeEditar(rel, userAtual.email, userAtual.uid)) {
+    if (podeEditar(rel, perfilAtual, userAtual.uid)) {
       html += `<a href="form.html?id=${encodeURIComponent(rel.id)}" class="btn btn-outline">Editar</a>`;
     }
-    if (podeExcluir(rel, userAtual.email, userAtual.uid)) {
+    if (podeExcluir(rel, perfilAtual, userAtual.uid)) {
       html += `<button type="button" class="btn btn-danger" id="btnExcluir">Excluir</button>`;
     }
     html += `<button type="button" class="btn btn-outline" onclick="window.print()">Imprimir / PDF</button>`;
@@ -239,12 +247,11 @@
       toast("Escreva o texto da cobrança.", "erro");
       return;
     }
-    const info = infoUsuario(userAtual.email);
     const nova = {
       texto,
       prazo,
       criadoPor: userAtual.email,
-      criadoPorNome: info.nome,
+      criadoPorNome: perfilAtual.nome,
       criadoEm: new Date().toISOString()
     };
     try {

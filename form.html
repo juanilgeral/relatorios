@@ -31,13 +31,6 @@
         <label for="operacao">Operação / CD *</label>
         <select id="operacao" required>
           <option value="">Selecione...</option>
-          <option value="CD C&V">CD C&V</option>
-          <option value="CD TELE-RIO">CD TELE-RIO</option>
-          <option value="CD HORTIFRUTI">CD HORTIFRUTI</option>
-          <option value="CD LASA">CD LASA</option>
-          <option value="FROTA">FROTA</option>
-          <option value="MANUTENÇÃO">MANUTENÇÃO</option>
-          <option value="GERAL">GERAL</option>
         </select>
       </div>
     </div>
@@ -178,7 +171,7 @@
 <script type="module">
   import {
     auth, protegerPagina, RELATORIOS_COL, doc, getDoc, setDoc, updateDoc,
-    serverTimestamp, gerarProtocolo, infoUsuario, podeCriar, podeEditar,
+    serverTimestamp, gerarProtocolo, podeCriar, podeEditar, OPERACOES,
     uploadAnexo, obterDuracaoVideo, toast, aplicarClasseDispositivo,
     obterGeolocalizacao, initSignaturePad, comprimirImagem,
     MAX_FOTOS, MAX_FOTO_MB, MAX_VIDEO_SEGUNDOS, MAX_VIDEO_MB
@@ -186,9 +179,18 @@
 
   aplicarClasseDispositivo();
 
+  const opSelectEl = document.getElementById("operacao");
+  OPERACOES.forEach(op => {
+    const opt = document.createElement("option");
+    opt.value = op;
+    opt.textContent = op;
+    opSelectEl.appendChild(opt);
+  });
+
   const params = new URLSearchParams(location.search);
   const editId = params.get("id");
   let userAtual = null;
+  let perfilAtual = null;
   let relatorioExistente = null;
 
   let fotosPendentes = [];
@@ -263,20 +265,25 @@
   document.getElementById("btnVideoArquivo").addEventListener("click", () => abrirModalContexto("video", "arquivo"));
 
   // ---- Auth e carga ----
-  protegerPagina(async (user) => {
+  protegerPagina(async (user, perfil) => {
     userAtual = user;
-    const info = infoUsuario(user.email);
-    document.getElementById("userLabel").textContent = info.nome;
+    perfilAtual = perfil;
+    document.getElementById("userLabel").textContent = perfil.nome;
 
-    if (!editId && !podeCriar(user.email)) {
-      toast("A diretoria não cria relatórios — apenas fiscaliza.", "erro");
+    if (!editId && !podeCriar(perfil)) {
+      if (perfil.papel === "diretoria") {
+        toast("A diretoria não cria relatórios — apenas fiscaliza.", "erro");
+      } else {
+        toast("Seu acesso ainda não foi configurado. Fale com o administrador.", "erro");
+      }
       setTimeout(() => location.href = "index.html", 1800);
       return;
     }
 
-    const opSelect = document.getElementById("operacao");
-    if (info.operacao && info.operacao !== "DIRETORIA" && info.operacao !== "GERAL") {
-      opSelect.value = info.operacao;
+    // Usuário comum: trava o CD no que foi atribuído a ele pelo Admin
+    if (perfil.papel === "operacional" && perfil.operacao) {
+      opSelectEl.value = perfil.operacao;
+      opSelectEl.disabled = true;
     }
     document.getElementById("dataOcorrencia").value = new Date().toISOString().slice(0, 10);
 
@@ -293,12 +300,17 @@
         return;
       }
       relatorioExistente = { id: snap.id, ...snap.data() };
-      if (!podeEditar(relatorioExistente, user.email, user.uid)) {
+      if (!podeEditar(relatorioExistente, perfil, user.uid)) {
         toast("Você não pode editar este relatório.", "erro");
         setTimeout(() => location.href = "detalhe.html?id=" + editId, 1500);
         return;
       }
       preencherForm(relatorioExistente);
+      // Em edição, usuário comum mantém o CD original travado (não pode mudar)
+      if (perfil.papel === "operacional") {
+        opSelectEl.value = relatorioExistente.operacao || perfil.operacao || "";
+        opSelectEl.disabled = true;
+      }
     }
   });
 
@@ -507,7 +519,7 @@
     btn.textContent = "Salvando...";
 
     try {
-      const info = infoUsuario(userAtual.email);
+      const info = perfilAtual;
       const assinaturaDataUrl = (signaturePad && signaturePad.temAssinatura())
         ? signaturePad.toDataURL()
         : (relatorioExistente?.assinaturaDataUrl || null);

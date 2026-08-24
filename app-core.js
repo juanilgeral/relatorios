@@ -8,7 +8,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
   getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc,
-  deleteDoc, query, orderBy, limit as fsLimit, serverTimestamp, runTransaction,
+  deleteDoc, query, where, orderBy, limit as fsLimit, serverTimestamp, runTransaction,
   arrayUnion
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import {
@@ -24,7 +24,7 @@ export const storage = getStorage(app);
 
 export {
   collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc,
-  query, orderBy, fsLimit, serverTimestamp, runTransaction, arrayUnion,
+  query, where, orderBy, fsLimit, serverTimestamp, runTransaction, arrayUnion,
   ref, uploadBytesResumable, getDownloadURL, deleteObject,
   signInWithEmailAndPassword, signOut, onAuthStateChanged
 };
@@ -43,24 +43,13 @@ export const FOTO_QUALIDADE = 0.68;    // JPEG
 // ---- Papéis e nomes de exibição ----
 // E-mails oficiais (criar exatamente assim no Firebase Auth)
 export const ADMIN_EMAIL = "operacional@juanil.com.br";
-export const DIRETORIA_EMAIL = "diretoria@juanil.com.br";
+export const DIRETORIA_EMAIL = "juanil@juanil.com.br";
 
-export const USUARIOS = {
-  "operacional@juanil.com.br": { nome: "OPERACIONAL (Admin)", papel: "admin", operacao: "GERAL" },
-  "operacional_2@juanil.com.br": { nome: "OPERACIONAL_2", papel: "operacional", operacao: "GERAL" },
-  "suportefrota@juanil.com.br": { nome: "SUPORTE FROTA", papel: "operacional", operacao: "FROTA" },
-  "manutencao@juanil.com.br": { nome: "MANUTENÇÃO", papel: "operacional", operacao: "MANUTENÇÃO" },
-  "cd_cv@juanil.com.br": { nome: "CD C&V", papel: "operacional", operacao: "CD C&V" },
-  "cd_tele_rio@juanil.com.br": { nome: "CD TELE-RIO", papel: "operacional", operacao: "CD TELE-RIO" },
-  "cd_hortifruti@juanil.com.br": { nome: "CD HORTIFRUTI", papel: "operacional", operacao: "CD HORTIFRUTI" },
-  "cd_lasa@juanil.com.br": { nome: "CD LASA", papel: "operacional", operacao: "CD LASA" },
-  "diretoria@juanil.com.br": { nome: "DIRETORIA", papel: "diretoria", operacao: "DIRETORIA" },
-};
-
-export function infoUsuario(email) {
-  if (!email) return { nome: "—", papel: "operacional", operacao: "—" };
-  return USUARIOS[email] || { nome: email, papel: "operacional", operacao: "—" };
-}
+// Lista única de Operações/CDs — usada nos formulários e filtros.
+// Para adicionar um novo CD, basta incluir aqui.
+export const OPERACOES = [
+  "CD C&V", "CD TELE-RIO", "CD HORTIFRUTI", "CD LASA", "FROTA", "MANUTENÇÃO", "GERAL"
+];
 
 export function isAdmin(email) {
   return email === ADMIN_EMAIL;
@@ -70,38 +59,73 @@ export function isDiretoria(email) {
   return email === DIRETORIA_EMAIL;
 }
 
-export function podeCriar(email) {
-  // Diretoria só fiscaliza — não cria relatórios
-  return email && !isDiretoria(email);
+/**
+ * Carrega o perfil do usuário logado.
+ * - Admin e Diretoria têm papel fixo (definido acima) e enxergam tudo.
+ * - Demais usuários têm o CD/Operação atribuído pelo Admin em um documento
+ *   na coleção "usuarios" do Firestore (doc ID = e-mail do usuário).
+ *   Isso permite adicionar/trocar o CD de um usuário direto no Firebase
+ *   Console, sem precisar editar código.
+ */
+export async function carregarPerfil(user) {
+  if (!user) return { nome: "—", papel: "operacional", operacao: null };
+  const email = user.email;
+
+  if (isAdmin(email)) {
+    return { nome: "OPERACIONAL (Admin)", papel: "admin", operacao: null };
+  }
+  if (isDiretoria(email)) {
+    return { nome: "DIRETORIA", papel: "diretoria", operacao: null };
+  }
+  try {
+    const snap = await getDoc(doc(db, "usuarios", email));
+    if (snap.exists()) {
+      const d = snap.data();
+      return { nome: d.nome || email, papel: "operacional", operacao: d.operacao || null };
+    }
+  } catch (e) {
+    console.warn("Não foi possível carregar o perfil do usuário:", e);
+  }
+  // Usuário autenticado mas ainda sem CD atribuído pelo Admin
+  return { nome: email, papel: "operacional", operacao: null };
 }
 
-export function podeEditar(relatorio, email, uid) {
-  if (!email || !relatorio) return false;
-  if (isAdmin(email)) return true;
-  if (isDiretoria(email)) return false; // diretoria não edita o conteúdo
+export function podeCriar(perfil) {
+  if (!perfil) return false;
+  if (perfil.papel === "diretoria") return false; // diretoria só fiscaliza
+  if (perfil.papel === "admin") return true;
+  return !!perfil.operacao; // operacional só cria se já tiver CD atribuído
+}
+
+export function podeEditar(relatorio, perfil, uid) {
+  if (!perfil || !relatorio) return false;
+  if (perfil.papel === "admin") return true;
+  if (perfil.papel === "diretoria") return false; // diretoria não edita o conteúdo
   // Criador pode editar enquanto não estiver concluído
   return relatorio.criadoPorUid === uid && relatorio.status !== "concluido";
 }
 
-export function podeExcluir(relatorio, email, uid) {
-  if (isAdmin(email)) return true;
+export function podeExcluir(relatorio, perfil, uid) {
+  if (!perfil) return false;
+  if (perfil.papel === "admin") return true;
   return relatorio.criadoPorUid === uid && relatorio.status !== "concluido";
 }
 
-export function podeCobrar(email) {
-  return isDiretoria(email) || isAdmin(email);
+export function podeCobrar(perfil) {
+  return !!perfil && (perfil.papel === "diretoria" || perfil.papel === "admin");
 }
 
 
 /* ---------------- Autenticação ---------------- */
 export function protegerPagina(callback) {
-  onAuthStateChanged(auth, (user) => {
+  onAuthStateChanged(auth, async (user) => {
     if (!user) {
       if (!location.pathname.endsWith("login.html")) {
         location.href = "login.html";
       }
     } else {
-      callback(user);
+      const perfil = await carregarPerfil(user);
+      callback(user, perfil);
     }
   });
 }

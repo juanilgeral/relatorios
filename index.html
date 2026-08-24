@@ -43,42 +43,59 @@
       <label for="filtroOp">Operação</label>
       <select id="filtroOp">
         <option value="">Todas</option>
-        <option value="CD C&V">CD C&V</option>
-        <option value="CD TELE-RIO">CD TELE-RIO</option>
-        <option value="CD HORTIFRUTI">CD HORTIFRUTI</option>
-        <option value="CD LASA">CD LASA</option>
-        <option value="FROTA">FROTA</option>
-        <option value="MANUTENÇÃO">MANUTENÇÃO</option>
-        <option value="GERAL">GERAL</option>
       </select>
     </div>
   </div>
 
   <div id="lista"></div>
   <div class="empty hidden" id="vazio">
-    <strong>Nenhum relatório encontrado</strong>
-    Ajuste os filtros ou cadastre o primeiro relatório.
+    <strong id="vazioTitulo">Nenhum relatório encontrado</strong>
+    <span id="vazioTexto">Ajuste os filtros ou cadastre o primeiro relatório.</span>
   </div>
 </div>
 
 <script type="module">
   import {
-    auth, signOut, protegerPagina, RELATORIOS_COL, getDocs, query, orderBy,
-    infoUsuario, statusBadge, fmtDataHora, escapeHtml, podeCriar, aplicarClasseDispositivo
+    auth, signOut, protegerPagina, RELATORIOS_COL, getDocs, query, where, orderBy,
+    statusBadge, fmtDataHora, escapeHtml, podeCriar, aplicarClasseDispositivo, OPERACOES
   } from "./app-core.js";
 
   aplicarClasseDispositivo();
 
+  const selOp = document.getElementById("filtroOp");
+  OPERACOES.forEach(op => {
+    const opt = document.createElement("option");
+    opt.value = op;
+    opt.textContent = op;
+    selOp.appendChild(opt);
+  });
+
   let todos = [];
   let userAtual = null;
+  let perfilAtual = null;
 
-  protegerPagina(async (user) => {
+  protegerPagina(async (user, perfil) => {
     userAtual = user;
-    const info = infoUsuario(user.email);
-    document.getElementById("userLabel").textContent = info.nome;
+    perfilAtual = perfil;
+    document.getElementById("userLabel").textContent = perfil.nome;
 
-    if (!podeCriar(user.email)) {
+    if (!podeCriar(perfil)) {
       document.getElementById("btnNovo").classList.add("hidden");
+    }
+
+    // Usuário operacional sem CD atribuído ainda pelo Admin
+    if (perfil.papel === "operacional" && !perfil.operacao) {
+      document.getElementById("vazioTitulo").textContent = "Seu acesso ainda não foi configurado";
+      document.getElementById("vazioTexto").textContent = "Fale com o administrador para liberar o CD/Operação da sua conta.";
+      document.getElementById("vazio").classList.remove("hidden");
+      selOp.disabled = true;
+      return;
+    }
+
+    // Usuário operacional só vê e filtra pelo próprio CD
+    if (perfil.papel === "operacional" && perfil.operacao) {
+      selOp.value = perfil.operacao;
+      selOp.disabled = true;
     }
 
     await carregar();
@@ -95,8 +112,17 @@
   });
 
   async function carregar() {
-    const snap = await getDocs(query(RELATORIOS_COL, orderBy("criadoEm", "desc")));
-    todos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const restrito = perfilAtual.papel === "operacional" && perfilAtual.operacao;
+    const q = restrito
+      ? query(RELATORIOS_COL, where("operacao", "==", perfilAtual.operacao), orderBy("criadoEm", "desc"))
+      : query(RELATORIOS_COL, orderBy("criadoEm", "desc"));
+    try {
+      const snap = await getDocs(q);
+      todos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (e) {
+      console.error(e);
+      todos = [];
+    }
     render();
   }
 

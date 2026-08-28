@@ -97,18 +97,44 @@ export function podeCriar(perfil) {
   return !!perfil.operacao; // operacional só cria se já tiver CD atribuído
 }
 
+/**
+ * Retorna true se o relatório ainda está dentro das 24h desde criadoEm.
+ * Aceita Timestamp do Firestore ou string ISO.
+ */
+function aindaDentroDe24h(relatorio) {
+  if (!relatorio || !relatorio.criadoEm) return false;
+  try {
+    const criado = relatorio.criadoEm.toDate
+      ? relatorio.criadoEm.toDate()
+      : new Date(relatorio.criadoEm);
+    if (isNaN(criado.getTime())) return false;
+    const limite = criado.getTime() + 24 * 60 * 60 * 1000; // 24 horas em ms
+    return Date.now() < limite;
+  } catch {
+    return false;
+  }
+}
+
 export function podeEditar(relatorio, perfil, uid) {
   if (!perfil || !relatorio) return false;
   if (perfil.papel === "admin") return true;
   if (perfil.papel === "diretoria") return false; // diretoria não edita o conteúdo
-  // Criador pode editar enquanto não estiver concluído
-  return relatorio.criadoPorUid === uid && relatorio.status !== "concluido";
+  // Criador pode editar enquanto não estiver concluído E dentro de 24h
+  return (
+    relatorio.criadoPorUid === uid &&
+    relatorio.status !== "concluido" &&
+    aindaDentroDe24h(relatorio)
+  );
 }
 
 export function podeExcluir(relatorio, perfil, uid) {
   if (!perfil) return false;
   if (perfil.papel === "admin") return true;
-  return relatorio.criadoPorUid === uid && relatorio.status !== "concluido";
+  return (
+    relatorio.criadoPorUid === uid &&
+    relatorio.status !== "concluido" &&
+    aindaDentroDe24h(relatorio)
+  );
 }
 
 export function podeCobrar(perfil) {
